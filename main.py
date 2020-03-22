@@ -1,37 +1,26 @@
 import speech_recognition as sr  # importing speech recognition package from google api
 # from pygame import mixer
-import playsound    # to play saved mp3 file
-from gtts import gTTS   # google text to speech
-import os   # to save/open files
-import wolframalpha # to calculate strings into formula, its a website which provides api, 100 times per day
+import playsound  # to play saved mp3 file
+from gtts import gTTS  # google text to speech
+import os  # to save/open files
+import wolframalpha  # to calculate strings into formula, its a website which provides api, 100 times per day
 from selenium import webdriver  # to control browser operations
 from selenium.webdriver.common.keys import Keys
 from io import BytesIO
 from io import StringIO
+import subprocess
+import re
+import requests
+from time import strftime
 
 num = 1
 
 
 def assistant_speaks(output):
-    global num
-    num +=1
-    print("PerSon : ", output)
-    toSpeak = gTTS(text=output, lang='en-US', slow=False)
-    file = str(num)+".mp3"
-    toSpeak.save(file)
-    # mp3_fp = BytesIO()
-    # toSpeak = gTTS(output, 'en', slow=False)
-    # toSpeak.write_to_fp(mp3_fp)
-    # os.system("D:\PeRSon\\audio\spoken.mp3")
-    '''mixer.init()
-    mixer.music.load('D:\PeRSon\\audio\spoken.mp3')
-    mixer.music.play()
-    time.sleep(5)
-    mixer.music.stop()'''
-    # song = AudioSegment.from_file(mp3_fp, format="mp3")
-    # playsound.playsound(mp3_fp)
-    playsound.playsound(file, True)
-    os.remove(file)
+    """speaks audio passed as argument"""
+    print(output)
+    for line in output.splitlines():
+        os.system("say " + output)
 
 
 def get_audio():
@@ -39,15 +28,18 @@ def get_audio():
     audio = ''
     with sr.Microphone() as source:
         print("Speak...")
-        audio = r.listen(source, phrase_time_limit=5)
+        r.pause_threshold = 1
+        r.adjust_for_ambient_noise(source, duration=1)
+        audio = r.listen(source)
     print("Stop.")
     try:
-        text = r.recognize_google(audio,language='en-US')
+        text = r.recognize_google(audio, language='en-NG')
         print("You : ", text)
         return text
     except:
-        assistant_speaks("Could not understand your audio, PLease try again!")
-        return 0
+        assistant_speaks("Could not get that, Please try again!")
+        command = get_audio();
+        return command
 
 
 def search_web(input):
@@ -57,7 +49,7 @@ def search_web(input):
     if 'youtube' in input.lower():
         assistant_speaks("Opening in youtube")
         indx = input.lower().split().index('youtube')
-        query = input.split()[indx+1:]
+        query = input.split()[indx + 1:]
         driver.get("http://www.youtube.com/results?search_query=" + '+'.join(query))
         return
 
@@ -82,37 +74,35 @@ def search_web(input):
 
 
 def open_application(input):
-    if "chrome" in input:
-        assistant_speaks("Google Chrome")
-        os.startfile('C:\Program Files (x86)\Google\Chrome\Application\chrome.exe')
-        return
-    elif "firefox" in input or "mozilla" in input:
-        assistant_speaks("Opening Mozilla Firefox")
-        os.startfile('C:\Program Files\Mozilla Firefox\\firefox.exe')
-        return
-    elif "word" in input:
-        assistant_speaks("Opening Microsoft Word")
-        os.startfile('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Office 2013\\Word 2013.lnk')
-        return
-    elif "excel" in input:
-        assistant_speaks("Opening Microsoft Excel")
-        os.startfile('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Office 2013\\Excel 2013.lnk')
-        return
-    else:
-        assistant_speaks("Application not available")
+    reg_ex = re.search('launch (.*)', input)
+    if reg_ex:
+        appname = reg_ex.group(1)
+        appname1 = appname + ".app"
+        subprocess.Popen(["open", "-n", "/Applications/" + appname1], stdout=subprocess.PIPE)
+        assistant_speaks('I have launched the desired application')
         return
 
 
 def process_text(input):
     try:
         if "who are you" in input or "define yourself" in input:
-            speak = '''Hello, I am Person. Your personal Assistant.
-            I am here to make your life easier. 
-            You can command me to perform various tasks such as calculating sums or opening applications etcetra'''
+            speak = 'Hello, I am Chiamaka. Your personal Assistant. I am here to make your life easier. You can command me to perform various tasks such as calculating sums or opening applications etcetra'
             assistant_speaks(speak)
             return
         elif "who made you" in input or "created you" in input:
-            speak = "I have been created by Sheetansh Kumar."
+            speak = "I have been created by Nitrocode Alex."
+            assistant_speaks(speak)
+            return
+        elif "how are you" in input:
+            speak = "Am doing great and you ?"
+            assistant_speaks(speak)
+            return
+        elif "good morning" in input or "morning" in  input:
+            speak = "Good Morning, how are you doing today"
+            assistant_speaks(speak)
+            return
+        elif "Am fine" in input or "fine" in input:
+            speak = "Good to know that you are fine"
             assistant_speaks(speak)
             return
         elif "crazy" in input:
@@ -120,7 +110,7 @@ def process_text(input):
             assistant_speaks(speak)
             return
         elif "calculate" in input.lower():
-            app_id= "E46YXW-T5LG6RT7K7"
+            app_id = "E46YXW-T5LG6RT7K7"
             client = wolframalpha.Client(app_id)
 
             indx = input.lower().split().index('calculate')
@@ -135,6 +125,22 @@ def process_text(input):
         elif 'search' in input or 'play' in input:
             search_web(input.lower())
             return
+        elif 'hello' in input:
+            day_time = int(strftime('%H'))
+            if day_time < 12:
+                assistant_speaks('Hello Sir. Good morning')
+            elif 12 <= day_time < 18:
+                assistant_speaks('Hello Sir. Good afternoon')
+            else:
+                assistant_speaks('Hello Sir. Good evening')
+        elif 'joke' in input:
+            res = requests.get(
+                'https://icanhazdadjoke.com/',
+                headers={"Accept": "application/json"})
+            if res.status_code == requests.codes.ok:
+                assistant_speaks(str(res.json()['joke']))
+            else:
+                assistant_speaks('oops!I ran out of jokes')
         else:
             assistant_speaks("I can search the web for you, Do you want to continue?")
             ans = get_audio()
@@ -151,17 +157,17 @@ def process_text(input):
 
 
 if __name__ == "__main__":
-    #assistant_speaks("What's your name, Human?")
-    name ='Human'
-    #name = get_audio()
-    assistant_speaks("Hello, " + name + '.')
-    while(1):
+    # assistant_speaks("What's your name, Human?")
+    name = 'I am NitroCode, am here to make your life easier'
+    # name = get_audio()
+    assistant_speaks("Hello," + name + '.')
+    while (1):
         assistant_speaks("What can i do for you?")
         text = get_audio().lower()
         if text == 0:
             continue
-        #assistant_speaks(text)
+        # assistant_speaks(text)
         if "exit" in str(text) or "bye" in str(text) or "go " in str(text) or "sleep" in str(text):
-            assistant_speaks("Ok bye, "+ name+'.')
+            assistant_speaks("Ok bye, " + name + '.')
             break
         process_text(text)
